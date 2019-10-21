@@ -169,16 +169,17 @@ function start_mon {
       fi
       ceph-mon --setuser ceph --setgroup ceph --cluster "${CLUSTER}" -i "${MON_NAME}" --inject-monmap "$MONMAP" --keyring "$MON_KEYRING" --mon-data "$MON_DATA_DIR"
     fi
-    if [[ "$CEPH_DAEMON" != demo ]]; then
-      v2v1=$(ceph-conf -c /etc/ceph/${CLUSTER}.conf 'mon host' | tr ',' '\n' | grep -c ${MON_IP})
-      # in case of v2+v1 configuration : [v2:xxxx:3300,v1:xxxx:6789]
-      if [ ${v2v1} -eq 2 ]; then
-        timeout 7 ceph "${CLI_OPTS[@]}" mon add "${MON_NAME}" "${MON_IP}" || true
-      # with v2 only : [v2:xxxx:3300]
-      else
-        timeout 7 ceph "${CLI_OPTS[@]}" mon add "${MON_NAME}" "${MON_IP}":"${MON_PORT}" || true
-      fi
-    fi
+    timeout 7 ceph "${CLI_OPTS[@]}" mon add "${MON_NAME}" "${MON_IP}":"${MON_PORT}" || true
+    #if [[ "$CEPH_DAEMON" != demo ]]; then
+    #  v2v1=$(ceph-conf -c /etc/ceph/${CLUSTER}.conf 'mon host' | tr ',' '\n' | grep -c ${MON_IP})
+    #  # in case of v2+v1 configuration : [v2:xxxx:3300,v1:xxxx:6789]
+    #  if [ ${v2v1} -eq 2 ]; then
+    #    timeout 7 ceph "${CLI_OPTS[@]}" mon add "${MON_NAME}" "${MON_IP}" || true
+    #  # with v2 only : [v2:xxxx:3300]
+    #  else
+    #    timeout 7 ceph "${CLI_OPTS[@]}" mon add "${MON_NAME}" "${MON_IP}":"${MON_PORT}" || true
+    #  fi
+    #fi
   fi
 
   # Apply the tuning on Nautilus and above only since the values applied are causing the ceph-osd to crash on earlier versions
@@ -188,7 +189,7 @@ function start_mon {
 
   # start MON
   if [[ "$CEPH_DAEMON" == demo ]]; then
-    /usr/bin/ceph-mon "${DAEMON_OPTS[@]}" -i "${MON_NAME}" --mon-data "$MON_DATA_DIR" --public-addr "${MON_IP}"
+    /usr/bin/ceph-mon "${DAEMON_OPTS[@]}" -i "${MON_NAME}" --mon-data "$MON_DATA_DIR" --public-addr "${MON_IP}":"${MON_PORT}"
 
     if [ -n "$NEW_USER_KEYRING" ]; then
       echo "$NEW_USER_KEYRING" | ceph "${CLI_OPTS[@]}" auth import -i -
@@ -199,7 +200,7 @@ function start_mon {
     # DO NOT TOUCH IT, IT MUST BE PRESENT
     DAEMON_OPTS+=(--mon-cluster-log-to-stderr "--log-stderr-prefix=debug ")
     log "SUCCESS"
-    exec /usr/bin/ceph-mon "${DAEMON_OPTS[@]}" -i "${MON_NAME}" --mon-data "$MON_DATA_DIR" --public-addr "${MON_IP}"
+    exec /usr/bin/ceph-mon "${DAEMON_OPTS[@]}" -i "${MON_NAME}" --mon-data "$MON_DATA_DIR" --public-addr "${MON_IP}":"${MON_PORT}"
   fi
 }
 

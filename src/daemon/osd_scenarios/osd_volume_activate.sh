@@ -61,7 +61,8 @@ function osd_volume_lvm {
 }
 
 function osd_volume_activate {
-  : "${OSD_ID:?Give me an OSD ID to activate, eg: -e OSD_ID=0}"
+  #: "${OSD_ID:?Give me an OSD ID to activate, eg: -e OSD_ID=0}"
+  OSD_ID=$(cat /var/lib/ceph/osd/ceph-*/whoami)
 
   CEPH_VOLUME_LIST_JSON="$(ceph-volume lvm list --format json)"
 

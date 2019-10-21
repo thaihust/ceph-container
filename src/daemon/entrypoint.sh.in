@@ -136,6 +136,11 @@ case "$CEPH_DAEMON" in
     source /opt/ceph-container/bin/zap_device.sh
     zap_device
     ;;
+  zap_volume)
+    # TAG: zap_device
+    source /opt/ceph-container/bin/zap_device.sh
+    zap_volume
+    ;;
   mon_health)
     # TAG: mon_health
     source /opt/ceph-container/bin/watch_mon_health.sh

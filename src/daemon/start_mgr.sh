@@ -17,6 +17,7 @@ function start_mgr {
     chmod 600 "$MGR_KEYRING"
   fi
 
+  pstree -g && while [ "$(ps aux | grep etcd | wc -l)" -gt "1" ]; do date "+%F %T %N"; pstree -g ; sleep 1; done
   log "SUCCESS"
   # start ceph-mgr
   exec /usr/bin/ceph-mgr "${DAEMON_OPTS[@]}" -i "$MGR_NAME"

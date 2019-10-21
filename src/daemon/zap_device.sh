@@ -148,3 +148,68 @@ function zap_device {
     fi
   done
 }
+
+function zap_volume {
+  if [[ -z ${OSD_DEVICE} ]]; then
+    log "Please provide device(s) to zap!"
+    log "ie: '-e OSD_DEVICE=/dev/sdb' or '-e OSD_DEVICE=/dev/sdb,/dev/sdc'"
+    exit 1
+  fi
+
+  if [[ "${OSD_DEVICE}" == "all_ceph_disks" ]]; then
+    OSD_DEVICE=$(get_all_ceph_devices)
+  fi    
+  for device in $(comma_to_space "${OSD_DEVICE}"); do
+    if [ ! -b "${device}" ]; then
+      log "Provided device ${device} is not a block special file."
+      exit 1
+    fi
+    # if the disk passed is a raw device AND the boot system disk
+    [[ $(lsblk --nodeps -no LABEL "${device}") == "boot" ]] && log "Looks like ${device} has a boot partition," &&
+      log "if you want to delete specific partitions point to the partition instead of the raw device" &&
+      log "Do not use your system disk!" &&
+      exit 1
+    if is_dmcrypt "${device}"; then
+      # If dmcrypt partitions detected, loop over all uuid found and check whether they are still opened.
+      ceph_dm=$(get_dmcrypt_uuid_part "${device}")
+      opened_dm=$(get_opened_dmcrypt "${device}")
+      zap_dmcrypt_volume "$ceph_dm" "$opened_dm"
+    fi
+    osd_volume_info=$(pvdisplay ${device} -C -o pv_name,vg_name,lv_name | grep ${device})
+    pv_list=()
+    vg_list=()
+    lv_list=()
+    while read -r map; do
+      pv_name=$(echo $map | awk '{ print $1 }')
+      vg_name=$(echo $map | awk '{ print $2 }')
+      lv_name=$(echo $map | awk '{ print $3 }')
+      lv_path=/dev/${vg_name}/${lv_name}
+      if [[ ! " ${pv_list[@]} " =~ " ${pv_name}" ]]; then
+        pv_list+=( "$pv_name" )
+      fi
+
+      if [[ ! " ${vg_list[@]} " =~ " ${vg_name}" ]]; then
+        vg_list+=( "$vg_name" )
+      fi
+
+      if [[ ! " ${lv_list[@]} " =~ " ${lv_name}" ]]; then
+        lv_list+=( "$lv_path" )
+      fi
+    done < <(echo "$osd_volume_info")
+
+    for lv in ${lv_list[@]}; do
+      lvm lvremove -y $lv
+    done
+    
+    for vg in ${vg_list[@]}; do
+      lvm vgremove -y $vg
+    done
+    
+    for pv in ${pv_list[@]}; do
+      lvm pvremove --force --force $pv
+    done
+
+    dd if=/dev/zero of=${device} bs=1M count=2048
+    sgdisk --zap-all ${device} 
+  done
+}

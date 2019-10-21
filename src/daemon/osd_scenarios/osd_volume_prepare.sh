@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-function osd_disk_prepare {
+function osd_volume_prepare {
   if [[ -z "${OSD_DEVICE}" ]];then
     log "ERROR- You must provide a device to build your OSD ie: /dev/sdb"
     exit 1
@@ -27,29 +27,26 @@ function osd_disk_prepare {
     return
   fi
 
-  IFS=" " read -r -a CEPH_DISK_CLI_OPTS <<< "${CLI_OPTS[*]}"
+  IFS=" " read -r -a CEPH_VOLUME_CLI_OPTS <<< "${CLI_OPTS[*]}"
   if [[ ${OSD_DMCRYPT} -eq 1 ]]; then
     # We need to do a mapfile because ${OSD_LOCKBOX_UUID} needs to be quoted
     # so doing a regular CLI_OPTS+=("${OSD_LOCKBOX_UUID}") will make shellcheck unhappy.
     # Although the array can still be incremented by the others task using a regular += operator
-    mapfile -t CEPH_DISK_CLI_OPTS_ARRAY <<< "${CEPH_DISK_CLI_OPTS[*]} --dmcrypt --lockbox-uuid ${OSD_LOCKBOX_UUID}"
-    IFS=" " read -r -a CEPH_DISK_CLI_OPTS <<< "${CEPH_DISK_CLI_OPTS_ARRAY[*]}"
+    mapfile -t CEPH_VOLUME_CLI_OPTS_ARRAY <<< "${CEPH_VOLUME_CLI_OPTS[*]} --dmcrypt --lockbox-uuid ${OSD_LOCKBOX_UUID}"
+    IFS=" " read -r -a CEPH_VOLUME_CLI_OPTS <<< "${CEPH_VOLUME_CLI_OPTS_ARRAY[*]}"
   fi
   if [[ ${OSD_BLUESTORE} -eq 1 ]]; then
-    CEPH_DISK_CLI_OPTS+=(--bluestore)
-    ceph-disk -v prepare "${CEPH_DISK_CLI_OPTS[@]}" \
+    CEPH_VOLUME_CLI_OPTS+=(--bluestore)
+    ceph-volume lvm prepare "${CEPH_VOLUME_CLI_OPTS[@]}" \
+    --data "${OSD_DEVICE}" \
     --block.wal "${OSD_BLUESTORE_BLOCK_WAL}" \
-    --block.wal-uuid "${OSD_BLUESTORE_BLOCK_WAL_UUID}" \
-    --block.db "${OSD_BLUESTORE_BLOCK_DB}" \
-    --block.db-uuid "${OSD_BLUESTORE_BLOCK_DB_UUID}" \
-    --block-uuid "${OSD_BLUESTORE_BLOCK_UUID}" \
-    "${OSD_DEVICE}"
+    --block.db "${OSD_BLUESTORE_BLOCK_DB}"
   elif [[ "${OSD_FILESTORE}" -eq 1 ]]; then
-    CEPH_DISK_CLI_OPTS+=(--filestore)
+    CEPH_VOLUME_CLI_OPTS+=(--filestore)
     if [[ -n "${OSD_JOURNAL}" ]]; then
-      ceph-disk -v prepare "${CEPH_DISK_CLI_OPTS[@]}" --journal-uuid "${OSD_JOURNAL_UUID}" "${OSD_DEVICE}" "${OSD_JOURNAL}"
+      ceph-volume lvm prepare "${CEPH_VOLUME_CLI_OPTS[@]}" --data "${OSD_DEVICE}" --journal "${OSD_JOURNAL}"
     else
-      ceph-disk -v prepare "${CEPH_DISK_CLI_OPTS[@]}" --journal-uuid "${OSD_JOURNAL_UUID}" "${OSD_DEVICE}"
+      ceph-volume lvm prepare "${CEPH_VOLUME_CLI_OPTS[@]}" --data "${OSD_DEVICE}"
     fi
   fi
 
@@ -74,7 +71,5 @@ function osd_disk_prepare {
   # watch the udev event queue, and exit if all current events are handled
   udevadm settle --timeout=600
 
-  if [[ "$CEPH_VERSION" == "luminous" ]] && [[ "$CEPH_VERSION" == "mimic" ]] ; then
-    apply_ceph_ownership_to_disks
-  fi
+  #apply_ceph_ownership_to_disks
 }

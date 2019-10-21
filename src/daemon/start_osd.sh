@@ -30,13 +30,24 @@ function start_osd {
     disk)
       osd_disk
       ;;
+    volume)
+      osd_volume
+      ;;
     prepare)
       source /opt/ceph-container/bin/osd_disk_prepare.sh
       osd_disk_prepare
       ;;
+    prepare_volume)
+      source /opt/ceph-container/bin/osd_volume_prepare.sh
+      osd_volume_prepare
+      ;;
     activate)
       source /opt/ceph-container/bin/osd_disk_activate.sh
       osd_activate
+      ;;
+    activate_volume)
+      source /opt/ceph-container/bin/osd_volume_activate.sh
+      osd_activate_volume
       ;;
     devices)
       source /opt/ceph-container/bin/osd_disks.sh
@@ -59,4 +70,11 @@ function osd_disk {
   source /opt/ceph-container/bin/osd_disk_activate.sh
   osd_disk_prepare
   osd_activate
+}
+
+function osd_volume {
+  source /opt/ceph-container/bin/osd_volume_prepare.sh
+  source /opt/ceph-container/bin/osd_volume_activate.sh
+  osd_volume_prepare
+  osd_volume_activate
 }
