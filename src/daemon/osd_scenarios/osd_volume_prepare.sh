@@ -20,7 +20,7 @@ function osd_volume_prepare {
   ceph_health client.bootstrap-osd "$OSD_BOOTSTRAP_KEYRING"
 
   # then search for some ceph metadata on the disk
-  if parted --script "${OSD_DEVICE}" print | grep -qE '^ 1.*ceph data'; then
+  if pvdisplay "${OSD_DEVICE}" | grep "ceph-*"; then
     log "INFO: It looks like ${OSD_DEVICE} is an OSD"
     log "You can use the zap_device scenario on the appropriate device to zap it"
     log "Moving on, trying to activate the OSD now."
@@ -37,10 +37,17 @@ function osd_volume_prepare {
   fi
   if [[ ${OSD_BLUESTORE} -eq 1 ]]; then
     CEPH_VOLUME_CLI_OPTS+=(--bluestore)
+    CEPH_VOLUME_CLI_POST_OPTS=()
+    if [[ ! -z ${OSD_BLUESTORE_BLOCK_WAL} ]]; then
+      CEPH_VOLUME_CLI_POST_OPTS+=(--block.wal "${OSD_BLUESTORE_BLOCK_WAL}")
+    fi
+
+    if [[ ! -z ${OSD_BLUESTORE_BLOCK_DB} ]]; then
+      CEPH_VOLUME_CLI_POST_OPTS+=(--block.db "${OSD_BLUESTORE_BLOCK_DB}")
+    fi
+
     ceph-volume lvm prepare "${CEPH_VOLUME_CLI_OPTS[@]}" \
-    --data "${OSD_DEVICE}" \
-    --block.wal "${OSD_BLUESTORE_BLOCK_WAL}" \
-    --block.db "${OSD_BLUESTORE_BLOCK_DB}"
+    --data "${OSD_DEVICE}" "${CEPH_VOLUME_CLI_POST_OPTS[@]}"
   elif [[ "${OSD_FILESTORE}" -eq 1 ]]; then
     CEPH_VOLUME_CLI_OPTS+=(--filestore)
     if [[ -n "${OSD_JOURNAL}" ]]; then
@@ -71,5 +78,7 @@ function osd_volume_prepare {
   # watch the udev event queue, and exit if all current events are handled
   udevadm settle --timeout=600
 
-  #apply_ceph_ownership_to_disks
+  if [[ "$CEPH_VERSION" == "luminous" ]] && [[ "$CEPH_VERSION" == "mimic" ]] ; then
+    apply_ceph_ownership_to_disks
+  fi
 }

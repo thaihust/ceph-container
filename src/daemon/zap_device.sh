@@ -175,39 +175,41 @@ function zap_volume {
       opened_dm=$(get_opened_dmcrypt "${device}")
       zap_dmcrypt_volume "$ceph_dm" "$opened_dm"
     fi
-    osd_volume_info=$(pvdisplay ${device} -C -o pv_name,vg_name,lv_name | grep ${device})
-    pv_list=()
-    vg_list=()
-    lv_list=()
-    while read -r map; do
-      pv_name=$(echo $map | awk '{ print $1 }')
-      vg_name=$(echo $map | awk '{ print $2 }')
-      lv_name=$(echo $map | awk '{ print $3 }')
-      lv_path=/dev/${vg_name}/${lv_name}
-      if [[ ! " ${pv_list[@]} " =~ " ${pv_name}" ]]; then
-        pv_list+=( "$pv_name" )
-      fi
+    if [[ ! -z $(pvdisplay | grep ${device}) ]]; then
+      osd_volume_info=$(pvdisplay ${device} -C -o pv_name,vg_name,lv_name | grep ${device})
+      pv_list=()
+      vg_list=()
+      lv_list=()
+      while read -r map; do
+        pv_name=$(echo $map | awk '{ print $1 }')
+        vg_name=$(echo $map | awk '{ print $2 }')
+        lv_name=$(echo $map | awk '{ print $3 }')
+        lv_path=/dev/${vg_name}/${lv_name}
+        if [[ ! " ${pv_list[@]} " =~ " ${pv_name}" ]]; then
+          pv_list+=( "$pv_name" )
+        fi
 
-      if [[ ! " ${vg_list[@]} " =~ " ${vg_name}" ]]; then
-        vg_list+=( "$vg_name" )
-      fi
+        if [[ ! " ${vg_list[@]} " =~ " ${vg_name}" ]]; then
+          vg_list+=( "$vg_name" )
+        fi
 
-      if [[ ! " ${lv_list[@]} " =~ " ${lv_name}" ]]; then
-        lv_list+=( "$lv_path" )
-      fi
-    done < <(echo "$osd_volume_info")
+        if [[ ! " ${lv_list[@]} " =~ " ${lv_name}" ]]; then
+          lv_list+=( "$lv_path" )
+        fi
+      done < <(echo "$osd_volume_info")
 
-    for lv in ${lv_list[@]}; do
-      lvm lvremove -y $lv
-    done
-    
-    for vg in ${vg_list[@]}; do
-      lvm vgremove -y $vg
-    done
-    
-    for pv in ${pv_list[@]}; do
-      lvm pvremove --force --force $pv
-    done
+      for lv in ${lv_list[@]}; do
+        lvm lvremove -y $lv
+      done
+      
+      for vg in ${vg_list[@]}; do
+        lvm vgremove -y $vg
+      done
+      
+      for pv in ${pv_list[@]}; do
+        lvm pvremove --force --force $pv
+      done
+    fi
 
     dd if=/dev/zero of=${device} bs=1M count=2048
     sgdisk --zap-all ${device} 

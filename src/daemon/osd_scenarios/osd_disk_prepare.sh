@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+: "${OSD_BLUESTORE_BLOCK_DB:=$OSD_DEVICE}"
+: "${OSD_BLUESTORE_BLOCK_WAL:=$OSD_DEVICE}"
+
 function osd_disk_prepare {
   if [[ -z "${OSD_DEVICE}" ]];then
     log "ERROR- You must provide a device to build your OSD ie: /dev/sdb"
@@ -74,7 +77,5 @@ function osd_disk_prepare {
   # watch the udev event queue, and exit if all current events are handled
   udevadm settle --timeout=600
 
-  if [[ "$CEPH_VERSION" == "luminous" ]] && [[ "$CEPH_VERSION" == "mimic" ]] ; then
-    apply_ceph_ownership_to_disks
-  fi
+  apply_ceph_ownership_to_disks
 }
