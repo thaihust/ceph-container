@@ -27,6 +27,8 @@ function osd_activate {
   # Find the OSD ID
   OSD_ID="$(cat ${CEPH_VOLUME_SCAN_FILE} | $PYTHON -c "import sys, json; print(json.load(sys.stdin)[\"whoami\"])")"
 
+  mkdir -p /var/lib/ceph/osd/${CLUSTER}-${OSD_ID}
+
   # Activate the OSD
   # The command can fail so if it does, let's output the ceph-volume logs
   if ! ceph-volume simple activate --file ${CEPH_VOLUME_SCAN_FILE} --no-systemd; then
